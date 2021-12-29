@@ -1,4 +1,3 @@
-
 from socket import *
 from _thread import *
 from threading import Thread, Lock
@@ -12,19 +11,20 @@ class Server:
     def __init__(self):
 
         # constants
-        self.buff_len = 1024
+        self.buff_len = 2048
         self.magic_cookie = 0xabcddcba
         self.msg_type = 0x2
         self.source_ip = get_if_addr('eth1')  # ip development network  # socket.gethostbyname(socket.gethostname())
-        self.source_port = 2066
-        self.dest_port = 13117
+        self.source_port = 2060
+        self.dest_port = 13111
         # global variables
         self.clients = []  # (team_thread, team_num, team_name, connection_socket)
         self.question = ""
         self.answer_player1 = ""
         self.answer_player2 = ""
         # WINNER_NUM = 0
-        self.lock = Lock()
+        self.lock = False
+        self.winner = ""
 
     def start_server(self):
         print("Server started, listening on IP address {0}".format(self.source_ip))
@@ -41,7 +41,7 @@ class Server:
 
     def send_offers_byUDP(self):
         server_socket_UDP = socket(AF_INET, SOCK_DGRAM)
-        server_socket_UDP.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        server_socket_UDP.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         server_socket_UDP.bind(("", self.source_port))
         offer = struct.pack('IbH', self.magic_cookie, self.msg_type , self.source_port)
         while len(self.clients) < 2:
@@ -88,15 +88,21 @@ class Server:
             time_out = time.time() - start_time
             try:
                 answer = conn.recv(self.buff_len).decode("UTF-8")
-                if player_num == 1:
-                    self.answer_player1 = answer
+                self.lock = True
+                if answer == eval(self.question):
+                    self.winner = player_num
 
-                elif player_num == 2:
-                    self.answer_player2 = answer   
-                
+                else:
+                    if player_num == self.clients[0][1]:
+                        self.winner = self.clients[1][2]
+                    else:
+                        self.winner = self.clients[0][2] 
+                return
             except:
                 pass
-
+        if(self.lock == False):
+            self.winner = 0
+        self.game_over()
 
     def start_game(self):
         optional_questions = ["2+2", "5+2", "3*2" ]
@@ -115,6 +121,7 @@ class Server:
         for client in self.clients:
             client[3].send(end_game_msg.encode("UTF-8"))
             client[3].close()
+
 
     # if __name__ == "__main__":
     #     start_server()

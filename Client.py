@@ -1,5 +1,3 @@
-
-
 from socket import *
 import struct
 from select import select
@@ -11,11 +9,11 @@ from scapy.arch import get_if_addr
 class Client:
 
     def __init__ (self):
-        self.buff_len = 1024
+        self.buff_len = 2048
         self.magic_cookie = 0xabcddcba
         self.msg_type = 0x2
         self.team_name = "STAV NAVIT"
-        self.udp_port = 13117
+        self.udp_port = 13111
         self.server_ip = ""
 
     def start_client(self):
@@ -23,14 +21,15 @@ class Client:
         while True:
             server_port, server_ip = self.get_offer_byUDP()
             client_socket_TCP = self.connect_to_server(server_port, server_ip)
+            print("sent to connect_to_server")
             if client_socket_TCP is None:
                 continue
-            start_game(client_socket_TCP)
+            self.start_game(client_socket_TCP)
 
 
     def get_offer_byUDP(self):
         client_socket_UDP = socket(AF_INET, SOCK_DGRAM) #create udp client socket
-        client_socket_UDP.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        client_socket_UDP.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         client_socket_UDP.bind(("", self.udp_port))
         while True:
             offer, server_address = client_socket_UDP.recvfrom(self.buff_len)
@@ -45,17 +44,21 @@ class Client:
 
 
     def connect_to_server(self, server_port, server_ip):
-        client_socket_TCP = socket(AF_INET, SOCK_STREAM) #create tcp client socket
         try:
-            print("Received offer from {0} attempting to connect...\n".format(server_ip))
+            client_socket_TCP = socket(AF_INET, SOCK_STREAM) #create tcp client socket
+            print("Received offer from {0} attempting to connect...".format(server_ip))
+            print(server_ip, server_port)
             client_socket_TCP.connect((server_ip, server_port))
+            print("client connected")
             client_socket_TCP.sendall(team_name.encode("UTF-8"))
+            
             return client_socket_TCP
         except:
             return None
 
 
     def start_game(self, client_socket):
+        print("client-start game")
         start_msg = client_socket.recv(self.buff_len).decode("UTF-8")
         print(start_msg)
         client_socket.setblocking(0)
